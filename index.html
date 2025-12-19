@@ -1,103 +1,146 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>JC — Bible Interconnections</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<title>JC — Bible Connections Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #0b0b0b;
-      color: #eaeaea;
-      padding: 20px;
-    }
+<style>
+body {
+  background: #0a0a0a;
+  color: #eee;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
+}
 
-    h1 {
-      text-align: center;
-    }
+input, button {
+  padding: 10px;
+  font-size: 16px;
+  width: 100%;
+  margin-bottom: 10px;
+}
 
-    input, button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 10px;
-      font-size: 16px;
-    }
+button {
+  background: #d4af37;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
 
-    button {
-      background: #cfa44a;
-      border: none;
-      cursor: pointer;
-      font-weight: bold;
-    }
+#map {
+  border: 1px solid #333;
+  margin-top: 20px;
+  background: #050505;
+}
 
-    .verse {
-      margin-top: 15px;
-      padding: 12px;
-      background: #161616;
-      border-left: 4px solid #cfa44a;
-    }
+.node {
+  fill: #d4af37;
+  cursor: pointer;
+}
 
-    .ref {
-      color: #cfa44a;
-      font-weight: bold;
-    }
+.link {
+  fill: none;
+  stroke: rgba(212,175,55,0.25);
+  stroke-width: 1.5;
+}
 
-    .connections {
-      font-size: 13px;
-      opacity: 0.7;
-      margin-top: 6px;
-    }
-  </style>
+#popup {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  background: #111;
+  padding: 10px;
+  border-left: 4px solid #d4af37;
+  display: none;
+}
+</style>
 </head>
 <body>
 
-<h1>JC — Jesus Christ Bible Explorer</h1>
-<p>Find every mention and overlap across Scripture</p>
+<h1>JC — Bible Interconnection Map</h1>
+<p>Visualize how Scripture connects through repeated words</p>
 
-<input id="search" placeholder="Enter word or phrase (e.g. Jesus, faith, light)">
-<button onclick="search()">Search Bible</button>
+<input id="keyword" placeholder="Enter keyword (Jesus, faith, light)">
+<button onclick="loadData()">Generate Map</button>
 
-<div id="results"></div>
+<svg id="map" width="100%" height="500"></svg>
+
+<div id="popup"></div>
 
 <script>
-async function search() {
-  const query = document.getElementById("search").value.trim();
-  if (!query) return;
+const bookIndex = {};
+const bookOrder = [
+  "Genesis","Exodus","Leviticus","Numbers","Deuteronomy","Joshua","Judges","Ruth",
+  "1 Samuel","2 Samuel","1 Kings","2 Kings","1 Chronicles","2 Chronicles","Ezra",
+  "Nehemiah","Esther","Job","Psalms","Proverbs","Ecclesiastes","Song of Solomon",
+  "Isaiah","Jeremiah","Lamentations","Ezekiel","Daniel","Hosea","Joel","Amos",
+  "Obadiah","Jonah","Micah","Nahum","Habakkuk","Zephaniah","Haggai","Zechariah",
+  "Malachi","Matthew","Mark","Luke","John","Acts","Romans","1 Corinthians",
+  "2 Corinthians","Galatians","Ephesians","Philippians","Colossians",
+  "1 Thessalonians","2 Thessalonians","1 Timothy","2 Timothy","Titus","Philemon",
+  "Hebrews","James","1 Peter","2 Peter","1 John","2 John","3 John","Jude","Revelation"
+];
 
-  const resultsDiv = document.getElementById("results");
-  resultsDiv.innerHTML = "Searching…";
+bookOrder.forEach((b,i)=>bookIndex[b]=i);
 
-  try {
-    const res = await fetch(`https://bible-api.com/${encodeURIComponent(query)}`);
-    const data = await res.json();
+async function loadData() {
+  const keyword = document.getElementById("keyword").value.trim();
+  if (!keyword) return;
 
-    if (!data.verses || data.verses.length === 0) {
-      resultsDiv.innerHTML = "No results found.";
-      return;
-    }
+  const svg = document.getElementById("map");
+  svg.innerHTML = "";
 
-    resultsDiv.innerHTML = "";
+  const res = await fetch(
+    `https://labs.bible.org/api/?passage=${encodeURIComponent(keyword)}&type=json`
+  );
+  const verses = await res.json();
 
-    data.verses.forEach(v => {
-      const div = document.createElement("div");
-      div.className = "verse";
-
-      div.innerHTML = `
-        <div class="ref">${v.book_name} ${v.chapter}:${v.verse}</div>
-        <div>${v.text}</div>
-        <div class="connections">
-          Connected by keyword: "${query}"
-        </div>
-      `;
-
-      resultsDiv.appendChild(div);
-    });
-
-  } catch (e) {
-    resultsDiv.innerHTML = "Error fetching Bible data.";
-    console.error(e);
+  if (!verses.length) {
+    alert("No results found.");
+    return;
   }
+
+  const width = svg.clientWidth;
+  const height = svg.clientHeight;
+
+  const points = verses.map(v => {
+    return {
+      x: (bookIndex[v.bookname] / bookOrder.length) * width + 30,
+      y: (v.chapter / 150) * height + 20,
+      text: `${v.bookname} ${v.chapter}:${v.verse} — ${v.text}`
+    };
+  });
+
+  // Draw arches
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i];
+    const b = points[i+1];
+    const path = document.createElementNS("http://www.w3.org/2000/svg","path");
+    const midX = (a.x + b.x) / 2;
+    const d = `M ${a.x},${a.y} Q ${midX},${a.y-80} ${b.x},${b.y}`;
+    path.setAttribute("d", d);
+    path.setAttribute("class","link");
+    svg.appendChild(path);
+  }
+
+  // Draw nodes
+  points.forEach(p => {
+    const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.setAttribute("cx", p.x);
+    c.setAttribute("cy", p.y);
+    c.setAttribute("r", 4);
+    c.setAttribute("class","node");
+
+    c.onclick = () => {
+      const popup = document.getElementById("popup");
+      popup.textContent = p.text;
+      popup.style.display = "block";
+    };
+
+    svg.appendChild(c);
+  });
 }
 </script>
 
