@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>JC — Bible Interconnections</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0b0b0b;
+      color: #eaeaea;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      font-size: 16px;
+    }
+
+    button {
+      background: #cfa44a;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .verse {
+      margin-top: 15px;
+      padding: 12px;
+      background: #161616;
+      border-left: 4px solid #cfa44a;
+    }
+
+    .ref {
+      color: #cfa44a;
+      font-weight: bold;
+    }
+
+    .connections {
+      font-size: 13px;
+      opacity: 0.7;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>JC — Jesus Christ Bible Explorer</h1>
+<p>Find every mention and overlap across Scripture</p>
+
+<input id="search" placeholder="Enter word or phrase (e.g. Jesus, faith, light)">
+<button onclick="search()">Search Bible</button>
+
+<div id="results"></div>
+
+<script>
+async function search() {
+  const query = document.getElementById("search").value.trim();
+  if (!query) return;
+
+  const resultsDiv = document.getElementById("results");
+  resultsDiv.innerHTML = "Searching…";
+
+  try {
+    const res = await fetch(`https://bible-api.com/${encodeURIComponent(query)}`);
+    const data = await res.json();
+
+    if (!data.verses || data.verses.length === 0) {
+      resultsDiv.innerHTML = "No results found.";
+      return;
+    }
+
+    resultsDiv.innerHTML = "";
+
+    data.verses.forEach(v => {
+      const div = document.createElement("div");
+      div.className = "verse";
+
+      div.innerHTML = `
+        <div class="ref">${v.book_name} ${v.chapter}:${v.verse}</div>
+        <div>${v.text}</div>
+        <div class="connections">
+          Connected by keyword: "${query}"
+        </div>
+      `;
+
+      resultsDiv.appendChild(div);
+    });
+
+  } catch (e) {
+    resultsDiv.innerHTML = "Error fetching Bible data.";
+    console.error(e);
+  }
+}
+</script>
+
+</body>
+</html>
